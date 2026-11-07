@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101b20">
+<title>Последний житель: Новое начало</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#101b20;--panel:#1b2a2d;--text:#f1f0df;--muted:#a9b6aa;--green:#9cbd78;--line:#344849;--gold:#e2bd75}
+*{box-sizing:border-box} body{margin:0;background:linear-gradient(#17272b,#0e171a);color:var(--text);font:16px system-ui,-apple-system,sans-serif}
+main{max-width:760px;margin:auto;padding:14px;padding-bottom:28px}
+header{padding:10px 2px 14px} h1{font-size:clamp(22px,5vw,32px);line-height:1.1;margin:0 0 7px} .sub{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:12px 0}
+.stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:10px}
+.stat strong{display:block;font-size:18px}.stat span{font-size:11px;color:var(--muted)}
+.scene{border:1px solid #496052;border-radius:14px;overflow:hidden;background:#253d34;position:relative}
+.scene-head{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 12px;background:#1b2b2b;font-size:13px}
+.map{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:8px;touch-action:manipulation}
+.tile{aspect-ratio:1;border-radius:5px;display:grid;place-items:center;font-size:clamp(18px,5vw,29px);background:#3b5a45;position:relative;min-width:0}
+.tile.road{background:#51564c}.tile.building{background:#59645b}.tile.tree{background:#284c38}.tile.water{background:#345e70}.tile.home{background:#796448}.tile.player{outline:3px solid var(--gold);outline-offset:-3px}
+.tile small{position:absolute;bottom:2px;right:3px;font-size:9px;color:#fff}
+.legend{padding:0 12px 12px;color:var(--muted);font-size:11px}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;max-width:300px;margin:12px auto}
+button{font:inherit;color:var(--text);background:#293b3d;border:1px solid #526564;border-radius:11px;padding:12px 8px;min-height:46px;cursor:pointer;touch-action:manipulation}
+button:active{transform:scale(.98);background:#405957}button:disabled{opacity:.4}
+.controls button{font-size:20px;font-weight:700}.blank{visibility:hidden}
+.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.actions button{font-size:14px;text-align:left}.actions button b{display:block;margin-bottom:3px}.actions button span{color:var(--muted);font-size:12px}
+.panel{margin-top:12px}.panel h2{font-size:16px;margin:0 0 8px}.message{color:var(--muted);font-size:13px;line-height:1.45;min-height:36px}
+.progress{height:7px;background:#334447;border-radius:99px;overflow:hidden;margin-top:8px}.progress div{height:100%;width:0;background:var(--green);transition:width .2s}
+.footer{font-size:11px;color:#80938c;text-align:center;padding:14px 4px}
+@media(min-width:600px){.game-layout{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;align-items:start}.right .panel:first-child{margin-top:0}.map{gap:5px;padding:10px}.tile{aspect-ratio:1.05}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>🌆 Последний житель</h1><div class="sub">НОВОЕ НАЧАЛО · ДЕНЬ <b id="day">1</b> · Найди ресурсы. Построй убежище.</div></header>
+<div class="stats">
+ <div class="stat"><strong id="wood">🪵 3</strong><span>Дерево</span></div>
+ <div class="stat"><strong id="metal">🔩 1</strong><span>Металл</span></div>
+ <div class="stat"><strong id="food">🍎 3</strong><span>Еда</span></div>
+ <div class="stat"><strong id="water">💧 3</strong><span>Вода</span></div>
+</div>
+<div class="game-layout">
+<section>
+ <div class="scene">
+  <div class="scene-head"><b>📍 Заброшенный район</b><span id="coords">Клетка 4, 4</span></div>
+  <div class="map" id="map" aria-label="Карта города"></div>
+  <div class="legend">🧍 Ты · 🌲 дерево · 📦 припасы · 🏚️ руины · 🏠 убежище · 🌊 вода</div>
+ </div>
+ <div class="controls" aria-label="Управление">
+  <button class="blank" tabindex="-1"> </button><button onclick="move(0,-1)" aria-label="Вверх">▲</button><button class="blank" tabindex="-1"> </button>
+  <button onclick="move(-1,0)" aria-label="Влево">◀</button><button onclick="searchTile()">🔎</button><button onclick="move(1,0)" aria-label="Вправо">▶</button>
+  <button class="blank" tabindex="-1"> </button><button onclick="move(0,1)" aria-label="Вниз">▼</button><button class="blank" tabindex="-1"> </button>
+ </div>
+ <div class="actions">
+  <button onclick="searchTile()"><b>🔎 Исследовать</b><span>Обыскать текущую клетку</span></button>
+  <button onclick="buildShelter()"><b>🏠 Построить дом</b><span>5 дерева + 3 металла</span></button>
+  <button onclick="rest()"><b>🌙 Отдохнуть</b><span>Начать следующий день</span></button>
+  <button onclick="resetGame()"><b>↻ Новая игра</b><span>Начать сначала</span></button>
+ </div>
+</section>
+<section class="right">
+ <div class="panel"><h2>📖 Дневник выжившего</h2><div class="message" id="message" aria-live="polite">Ты проснулся среди пустых улиц. Осмотрись и собери припасы — тебе нужно место, где можно укрыться.</div></div>
+ <div class="panel"><h2>🎯 Цель выживания</h2><div id="goal">Собери ресурсы и построй первое убежище.</div><div class="progress"><div id="progress"></div></div></div>
+ <div class="panel"><h2>💡 Как играть</h2><div class="message">Нажимай стрелки, чтобы перемещаться. На разных клетках можно найти ресурсы. Исследуй город, следи за запасами и построй убежище. Прогресс сохраняется на этом устройстве.</div></div>
+</section>
+</div>
+<div class="footer">Демо-версия 0.1 · Прогресс хранится в браузере этого устройства</div>
+</main>
+<script>
+const W=7,H=7;
+const original=[
+ ['tree','road','building','road','tree','road','building'],
+ ['road','supply','road','building','road','supply','road'],
+ ['building','road','tree','road','building','road','tree'],
+ ['road','road','road','road','road','road','road'],
+ ['tree','building','road','supply','road','building','tree'],
+ ['road','supply','road','building','road','supply','road'],
+ ['building','road','tree','road','tree','road','building']
+];
+const icons={road:'',tree:'🌲',building:'🏚️',supply:'📦',home:'🏠',water:'🌊'};
+let state;
+function fresh(){return {x:3,y:3,day:1,wood:3,metal:1,food:3,water:3,home:false,found:[],map:original.map(r=>r.slice()),message:'Ты проснулся среди пустых улиц. Осмотрись и собери припасы — тебе нужно место, где можно укрыться.'}}
+function load(){try{let s=JSON.parse(localStorage.getItem('lastResidentSave'));if(s&&s.map&&s.map.length===H)return s}catch(e){}return fresh()}
+state=load();
+function save(){try{localStorage.setItem('lastResidentSave',JSON.stringify(state))}catch(e){}}
+function say(t){state.message=t;document.getElementById('message').textContent=t;save()}
+function render(){
+ document.getElementById('day').textContent=state.day;
+ for(let k of ['wood','metal','food','water'])document.getElementById(k).textContent=({wood:'🪵 ',metal:'🔩 ',food:'🍎 ',water:'💧 '})[k]+state[k];
+ document.getElementById('coords').textContent=`Клетка ${state.x+1}, ${state.y+1}`;
+ let map=document.getElementById('map');map.innerHTML='';
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  let type=state.map[y][x],tile=document.createElement('div');
+  tile.className='tile '+type+((x===state.x&&y===state.y)?' player':'');
+  tile.textContent=(x===state.x&&y===state.y)?'🧍':(icons[type]||'');
+  tile.setAttribute('aria-label',x===state.x&&y===state.y?'Вы здесь':type);
+  map.appendChild(tile);
+ }
+ document.getElementById('goal').textContent=state.home?'Убежище построено! Следующая цель — исследовать весь город.':'Нужно: 5 дерева и 3 металла. Исследуй клетки с 🌲 и 📦.';
+ document.getElementById('progress').style.width=state.home?'100%':Math.min(95,(state.wood/5+state.metal/3)/2*100)+'%';
+}
+function move(dx,dy){
+ let nx=state.x+dx,ny=state.y+dy;
+ if(nx<0||nx>=W||ny<0||ny>=H){say('Дальше пройти нельзя — край района. Попробуй другой путь.');return}
+ state.x=nx;state.y=ny;let t=state.map[ny][nx];
+ if(t==='supply')say('Ты нашёл заброшенный ящик. Нажми «Исследовать», чтобы проверить содержимое.');
+ else if(t==='tree')say('Здесь растут деревья. Можно поискать пригодные материалы.');
+ else if(t==='building')say('Старые руины. Возможно, внутри остались полезные вещи.');
+ else if(t==='home')say('Твоё убежище. Здесь можно переждать ночь.');
+ else say('Улица тихая. Осмотрись вокруг.');
+ render();save();
+}
+function searchTile(){
+ let t=state.map[state.y][state.x];
+ if(t==='tree'){let n=1+Math.floor(Math.random()*3);state.wood+=n;state.map[state.y][state.x]='road';say(`Ты собрал ${n} ед. дерева. Это пригодится для строительства.`)}
+ else if(t==='supply'){let n=1+Math.floor(Math.random()*2);if(Math.random()<.5){state.food+=n;say(`В ящике нашлось еды: +${n}.`)}else{state.water+=n;say(`В ящике нашлась вода: +${n}.`)}state.map[state.y][state.x]='road'}
+ else if(t==='building'){let r=Math.random();if(r<.5){state.metal+=1;say('В руинах нашёлся металл: +1.')}else{state.wood+=1;say('Нашлись пригодные доски: +1 дерево.')}state.map[state.y][state.x]='road'}
+ else if(t==='home')say('В убежище безопасно. Когда будешь готов, можешь начать следующий день.')
+ else say('Здесь ничего полезного не видно. Попробуй исследовать другую клетку.');
+ render();save();
+}
+function buildShelter(){
+ if(state.home){say('У тебя уже есть убежище. Исследуй другие клетки и собирай припасы.');return}
+ if(state.wood<5||state.metal<3){say(`Пока не хватает ресурсов. Нужно 5 дерева и 3 металла. У тебя: ${state.wood} дерева, ${state.metal} металла.`);return}
+ state.wood-=5;state.metal-=3;state.home=true;state.map[state.y][state.x]='home';say('Отлично! Ты построил первое убежище. Теперь у тебя есть место для отдыха. Это только начало новой жизни.');render();save();
+}
+function rest(){
+ state.day++;
+ if(state.food>0)state.food--;else say('Еды нет — постарайся найти припасы.');
+ if(state.water>0)state.water--;else say('Воды нет — найди воду как можно скорее.');
+ if(state.food>0&&state.water>0)say(`Наступил день ${state.day}. Ты отдохнул и потратил 1 еду и 1 воду. Пора исследовать город.`);
+ render();save();
+}
+function resetGame(){if(confirm('Начать новую игру? Текущий прогресс будет сброшен.')){state=fresh();render();say(state.message);save()}}
+render();document.getElementById('message').textContent=state.message;
+if(window.Telegram&&window.Telegram.WebApp){window.Telegram.WebApp.ready();window.Telegram.WebApp.expand()}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowUp')move(0,-1);if(e.key==='ArrowDown')move(0,1);if(e.key==='ArrowLeft')move(-1,0);if(e.key==='ArrowRight')move(1,0)});
+</script>
+</body>
+</html>
